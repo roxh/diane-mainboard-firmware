@@ -1,0 +1,8 @@
+avrdude -p m32 -c STK500 -B 22 -P /dev/tty.usbmodem1421 -U lfuse:w:0x9f:m -U hfuse:w:0xc1:m -v
+
+ggf. mit ls /dev/tty* nach dem Adapter suchen und unter -P eintragen
+
+
+read eeprom:
+
+avrdude -p m32 -c STK500 -B 22 -P /dev/tty.usbmodem1421 -U eeprom:r:measured_data.eep:i -v

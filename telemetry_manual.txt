@@ -1,0 +1,40 @@
+Baudrate 38400 / 8 Data-Bits / No Parity-Bit / 1 Stop-Bit
+
+1. Pakete beginnen mit 2 Start-Bytes (Start-Byte = 0xCC, vgl. defines in rexus_mainboard.c)
+2. Es folgen zwei Bytes mit laufender Nummer des Pakets (high-byte zuerst)
+3. Byte #4 gibt die Anzahl an Informations-Bytes im Paket an (0x06 oder 0x02)
+4. es folgen abwechselnd die ID der Datenquelle und das zugehörige Datenbyte
+5. abschließend zwei Stop-Bytes (0x1F)
+
+
+Beispiel: CC CC 00 17 06 31 CF 32 3C 33 13 1F 1F
+	CC CC -> Paketanfang
+	00 17 -> 23. Paket (das erste ist 00 01)
+	06 -> es folgen 6 Bytes mit Informationen = 3 Paare aus ID-Byte und Datenbyte
+	31 -> das nächste Byte ist der Messwert von PRS0 (Antenne)
+	CF -> Messwert von PRS0
+	32 -> das nächste Byte ist der Messwert von PRS1 (Druckflasche)
+	3C -> Messwert von PRS1
+	33 -> das nächste Byte ist der Messwert von TEMP (Mainboard)
+	13 -> die Temperatur beträgt 19 °C
+	1F 1F -> Paketende	
+
+
+- Bedeutung der Bytes (ID’s etc.) in den defines Zeilen 25…52
+- Aufbau der Pakete kann auch in den Zeilen 257…303 nachvollzogen werden
+- ein Datenbyte des Temperatursensors gibt plain die Temperatur an (nur Konversion hex->dec nötig)
+- Konversion PRS_0: P0 = X *  6,895 bar * 1,25/512 wobei X der Messwert ist (dezimal!)
+- Konversion PRS_1: P1 = X * 17,237 bar * 1,25/256
+ACHTUNG: Konversionsformeln für PRS_0/1 ungeprüft! Bitte verifizieren und bei Auffälligkeiten von beiden Drucksensoren Messwerte unter 1 atm an Ulrich schicken.
+
+
+-folgende einzelne Abfragen/Befehle sind möglich:
+	1. Request for power down (später mandatory vor Abschalten auf der Startrampe damit es keinen fuckup mit Speicherkarten und dem RF-Board gibt)
+	2. Einzel-Abfrage von PRS0/PRS1/TEMP/ARM
+	3. Manuelles Öffnen und Schließen des Ventils
+
+	- Aufbau der Abfragen: „Start-Byte Instruction Stop-Byte“ als Byte-String
+		- Start/Stop-Byte vgl. oben
+		- Instruktionen: vgl. defines Zeilen 37…41
+	Beispiele:	Ventil öffnen:	„CC 67 1F“
+			PRS_0 abfragen:	„CC 61 1F“
