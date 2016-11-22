@@ -43,12 +43,20 @@
 #define CLS_vlv     0b01101000  // 0x68 ID for command to close Valve_0
 #define REQ_pwr_dwn 0b01101111  // 0x6F ID for power down request
 
+#define PRSS_strt   0b10100001  // 0xA1 ID for Pressure-Sampling started
+#define PRSS_stop   0b10100010  // 0xA2 ID for Pressure-Sampling stopped
 #define CAM0_ok     0b10100100  // 0xA4 ID for cam0 status ok
 #define CAM1_ok     0b10100101  // 0xA5 ID for cam1 status ok
 #define ARM_ok      0b10100110  // 0xA6 ID for ARM sensor ok
 #define RF_ok       0b10100111  // 0xA7 ID for RF board ok
 #define VLV_opnd    0b10101000  // 0xA8 ID for Valve_0 opened
 #define VLV_clsd    0b10101001  // 0xA9 ID for Valve_0 closed
+#define RF_strt     0b10101010  // 0xAA ID for RF-Transmission started
+#define RF_stop     0b10101011  // 0xAB ID for RF-Transmission stopped
+#define VR_strt     0b10101100  // 0xAC ID for Video-Recording started
+#define VR_stop     0b10101101  // 0xAD ID for Video-Recording stopped
+#define CAM_on      0b10101110  // 0xAE ID for Cams turned on
+#define CAM_off     0b10111111  // 0xAF ID for Cams turned off
 #define ERR_stat    0b10100000  // 0xA0 ID for error status
 
 #define ARM_success 0b11100110  // 0xE6 ID for successful CubeSat ejection
@@ -190,6 +198,7 @@ uint16_t eeprom_mom_address = 0;    // control variable for next free eeprom add
 uint8_t prs_sampling_enabled = 1;   // boolean to stop pressure sampling directly
                                     // before CubeSat ejection
 uint8_t arm_polling_enabled = 0;    // boolean to start/stop arm_sensor polling
+uint8_t cubesat_ejected = 0;        // boolean to decide which message to send depending on arm_sensor
 
 uint8_t LO_active = 0;              // boolean reference for LO = timeline actions at T+n
 uint8_t SOE_active = 0;             // boolean reference for SOE
@@ -232,8 +241,8 @@ void turn_off_5V  (void) { port_voltage_en |=  (1<<P_5V_enable);}
 void turn_on_12V  (void) { port_voltage_en |=  (1<<P_12V_enable);}
 void turn_off_12V (void) { port_voltage_en &= ~(1<<P_12V_enable);}
 
-uint8_t get_cam_0_status (void) { return 1; }//pin_cam_0 & (1<<CAM_0_status);}
-uint8_t get_cam_1_status (void) { return 1; }//pin_cam_1 & (1<<CAM_1_status);}
+uint8_t get_cam_0_status (void) { return 1; }//pin_cam_0 & (1<<CAM_0_status);}  // blink pattern recognition too complicated :(
+uint8_t get_cam_1_status (void) { return 1; }//pin_cam_1 & (1<<CAM_1_status);}  // blink pattern recognition too complicated :(
 
 uint8_t get_arm_sens_status (void) { return pin_arm_sens & (1<<ARM_sensor);}
 
@@ -328,10 +337,28 @@ void usart_transmit_soe_successful (void)
     usart_transmit_single_byte_message (RXSM_id, SOE_ok);
 }
 
+// transmit the message of Pressure-Sampling started
+void usart_transmit_prs_sampling_started (void)
+{
+    usart_transmit_single_byte_message (PRS0_id, PRSS_strt);
+}
+
+// transmit the message of Pressure-Sampling stopped
+void usart_transmit_prs_sampling_stopped (void)
+{
+    usart_transmit_single_byte_message (PRS0_id, PRSS_stop);
+}
+
 // transmit the message of successful CubeSat ejection
 void usart_transmit_ejection_successful (void)
 {
     usart_transmit_single_byte_message (ARM_id, ARM_success);
+}
+
+// transmit the message of failed CubeSat ejection
+void usart_transmit_ejection_failed (void)
+{
+    usart_transmit_single_byte_message (ARM_id, ERR_stat);
 }
 
 // transmit the message of opened state of valve_0
@@ -344,6 +371,42 @@ void usart_transmit_valve_0_opened (void)
 void usart_transmit_valve_0_closed (void)
 {
     usart_transmit_single_byte_message (VLV_id, VLV_clsd);
+}
+
+// transmit the message of started RF-Transmission
+void usart_transmit_rf_started (void)
+{
+    usart_transmit_single_byte_message (RF_id, RF_strt);
+}
+
+// transmit the message of stopped RF-Transmission
+void usart_transmit_rf_stopped (void)
+{
+    usart_transmit_single_byte_message (RF_id, RF_stop);
+}
+
+// transmit the message of started Video-Recording
+void usart_transmit_video_rec_started (void)
+{
+    usart_transmit_single_byte_message (CAM0_id, VR_strt);
+}
+
+// transmit the message of stopped Video-Recording
+void usart_transmit_video_rec_stopped (void)
+{
+    usart_transmit_single_byte_message (CAM0_id, VR_stop);
+}
+
+// transmit the message of Cameras turned on
+void usart_transmit_cams_turned_on (void)
+{
+    usart_transmit_single_byte_message (CAM0_id, CAM_on);
+}
+
+// transmit the message of Cameras turned off
+void usart_transmit_cams_turned_off (void)
+{
+    usart_transmit_single_byte_message (CAM0_id, CAM_off);
 }
 
 
@@ -384,7 +447,7 @@ uint16_t sample_temp (void)
     
     while ( !(TWCR & (1<<TWINT)))           // wait for TWINT flag = data byte received + ACK transmitted
         ;
-    if ((TWSR & 0xF8) != TW_MR_DATA_ACK)    // if TWI status != MR_SLA_ACK -> error
+    if ((TWSR & 0xF8) != TW_MR_DATA_ACK)    // if TWI status != MR_DATA_ACK -> error
     {
         twi_error();
     }
@@ -397,7 +460,7 @@ uint16_t sample_temp (void)
     
     while ( !(TWCR & (1<<TWINT)))           // wait for TWINT flag = data byte received + NACK transmitted
         ;
-    if ((TWSR & 0xF8) != TW_MR_DATA_NACK)   // if TWI status != MR_SLA_NACK -> error
+    if ((TWSR & 0xF8) != TW_MR_DATA_NACK)   // if TWI status != MR_DATA_NACK -> error
     {
         twi_error();
     }
@@ -430,7 +493,7 @@ uint8_t sample_prs (uint8_t sensor_id)
         ;
     ADCSRA &= ~(1<<ADIF);               // clear interrupt flag
     prs_sample_raw  = ADC;              // reading low byte
-    //prs_sample_raw |= (ADCH<<8);        // reading high byte
+    prs_sample_raw |= (ADCH<<8);        // reading high byte
     prs_sample_raw -= 102;              // subtract offset equivalent to 0.5 V
 
     // conversion to 8-bit value
@@ -527,15 +590,19 @@ void init_pwr_dwn (void)
     if (cams_recording)
     {
         stop_rec_cams();
+        usart_transmit_video_rec_stopped();
         // cam shutdown is executed from within stop_recording
     }
     else
     {
         turn_off_cams();
+        usart_transmit_cams_turned_off();
     }
 
     stop_rfb_transm();
+    usart_transmit_rf_stopped();
     disable_prs_sampling();
+    usart_transmit_prs_sampling_stopped();
 
     usart_transmit_single_byte_message (RF_id , RF_ok);
 }
@@ -589,8 +656,10 @@ void sods_approved (void)
     SODS_active = 1;
 turn_off_led_0();
     start_rec_cams();
+    usart_transmit_video_rec_started();
     turn_on_5V();
     start_measurements();
+    usart_transmit_prs_sampling_started();
     start_timeline_counter();
     sei();
     SREG = tmp_sreg;
@@ -609,9 +678,11 @@ void lo_approved (void)
     {
         SODS_active = 1;
         start_rec_cams();
+        usart_transmit_video_rec_started();
         turn_on_5V();
         eeprom_mom_address = 100;
         start_measurements();
+        usart_transmit_prs_sampling_started();
         start_timeline_counter();
     }
 turn_off_led_1();
@@ -632,6 +703,7 @@ void soe_approved (void)
         start_timeline_counter();
         turn_on_12V();
         open_valve_0();
+        usart_transmit_valve_0_opened();
 turn_off_led_2();
     }
     sei();
@@ -759,11 +831,13 @@ ISR (TIMER0_COMP_vect)
             mom_prs1 = sample_prs(1);           // sample PRS_sensor_1
         }
 
+        // wait for potential incoming message but not longer than <timeout>
         uint8_t timeout = timeline_counter;
         while (pending_usart_msg && !(timeline_counter-timeout))
             ;
         usart_transmit_data (mom_prs0, mom_prs1, mom_temp);
 
+        // log pressure data with 2 Hz only, poll on ARM-Sensor with 2 Hz if polling enabled
         if (F_2Hz_ref_counter == 3)
         {
             F_2Hz_ref_counter = 0;
@@ -773,10 +847,10 @@ ISR (TIMER0_COMP_vect)
             }
             if (arm_polling_enabled)
             {
-                if (! get_arm_sens_status())
+                if (get_arm_sens_status())
                 {
+                    cubesat_ejected = 1;
                     stop_arm_polling();
-                    usart_transmit_ejection_successful();
                 }   
             }
         }
@@ -795,6 +869,7 @@ ISR(TIMER1_COMPA_vect)
     {
         TCCR2 &= 0b11111000;        // stop Timer2
         turn_off_cams();
+        usart_transmit_cams_turned_off();
     }
     switch (timeline_counter)
     {
@@ -807,21 +882,25 @@ ISR(TIMER1_COMPA_vect)
             {
 turn_off_led_3();
                 start_rfb_transm();
+                usart_transmit_rf_started();
             }
             break;
 
         case T_close_valve:
             close_valve_0();
+            usart_transmit_valve_0_closed();
 turn_on_led_2();
             break;
 
         case T_stop_rf_sig_transm:
             stop_rfb_transm();
+            usart_transmit_rf_stopped();
 turn_on_led_3();
             break;
 
         case T_disable_prs_sampling:
             disable_prs_sampling();
+            usart_transmit_prs_sampling_stopped();
             stop_data_eeprom_logging();
             turn_off_5V();
             turn_off_12V();
@@ -834,15 +913,25 @@ turn_on_led_1();
 
         case T_stop_arm_evaluation:
             stop_arm_polling();
+            if (cubesat_ejected)
+            {
+                usart_transmit_ejection_successful();
+            }
+            else
+            {
+                usart_transmit_ejection_failed();
+            }
             break;
 
         case T_stop_video_recording:
             stop_rec_cams();
+            usart_transmit_video_rec_stopped();
 turn_on_led_0();
             break;
 
         case T_stop_video_recording+10:
             turn_off_cams();
+            usart_transmit_cams_turned_off();
 turn_off_led_0();
 turn_off_led_1();
 turn_off_led_2();
@@ -853,7 +942,7 @@ turn_off_led_3();
     SREG = tmp_sreg;
 }
 
-// ISR for Timer2 pulling cam_control lines low after >= 5s
+// ISR for Timer2 pulling cam_control lines low after >= 5 s
 ISR(TIMER2_OVF_vect)
 {
     tmp_sreg = SREG;
@@ -875,7 +964,7 @@ ISR(TIMER2_OVF_vect)
     SREG = tmp_sreg;
 }
 
-// ISR for Timer2 pulling cam_control lines low after >= 100ms
+// ISR for Timer2 pulling cam_control lines low after >= 100 ms
 ISR(TIMER2_COMP_vect)
 {
     tmp_sreg = SREG;
@@ -950,7 +1039,7 @@ ISR(TIMER2_COMP_vect)
 int main(void)
 {
 
-    // inputs
+    // assign inputs
     dir_prs_sens    &= ~(1<<PRS_sensor_0);
     dir_prs_sens    &= ~(1<<PRS_sensor_1);
     dir_arm_sens    &= ~(1<<ARM_sensor);
@@ -961,7 +1050,7 @@ int main(void)
     dir_rxsm_sods   &= ~(1<<RXSM_SODS);
     dir_rxsm_lo     &= ~(1<<RXSM_LO);
 
-    // outputs
+    // assign outputs
     dir_prs_valv    |= (1<<PRS_valve_0) | (1<<PRS_valve_1);
     dir_rf_board    |= (1<<RFB_silence) | (1<<RFB_transmit);
     dir_voltage_en  |= (1<<P_5V_enable) | (1<<P_12V_enable);
@@ -978,7 +1067,7 @@ int main(void)
     GICR   |=  (1<<INT0)|(1<<INT1)|(1<<INT2);   // activate external interrupts int0,1,2
 
     // USART initialization (RXSM)
-    UBRRL  = 0x17;  // setting UBRR value to 23 for baudrate of 38.4k at 14.7456MHz
+    UBRRL  = 0x17;  // setting UBRR value to 23 for baudrate of 38.4k at 14.7456 MHz
     UCSRB |= (1<<RXCIE)|(1<<RXEN)|(1<<TXEN);    // activate interrupt on receive, enable transceiver
 
     // TWI initialization (temperature)
@@ -986,7 +1075,7 @@ int main(void)
     TWCR |= (1<<TWEN);  // enable TWI
 
     // ADC initialization (pressure)
-    ADCSRA |= (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0); // set ADC prescaler to 128 for 115,2kHz clock
+    ADCSRA |= (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0); // set ADC prescaler to 128 for 115,2 kHz clock
     
     // Timer0
     TCCR0   |= (1<<WGM01);      // CTC-Mode on = clear Timer on compare match
@@ -997,7 +1086,7 @@ int main(void)
     // Timer1 for seconds clock
     TCCR1B  |= (1<<WGM12);      // CTC-Mode on = clear Timer on compare match
     OCR1AH   = 0x38;            // compare value = 14399, high byte
-    OCR1AL   = 0x3F;            // compare value = 14399, low byte  to generate 1Hz
+    OCR1AL   = 0x3F;            // compare value = 14399, low byte  to generate 1 Hz
     TIFR    |= (1<<OCF1A);      // clear pending output compare interrupts
     TIMSK   |= (1<<OCIE1A);     // enable Timer1 output compare A interrupt
 
@@ -1010,6 +1099,7 @@ int main(void)
     sei();
 
     turn_on_cams();
+    usart_transmit_cams_turned_on();
 
     turn_on_led_0();
     turn_on_led_1();
