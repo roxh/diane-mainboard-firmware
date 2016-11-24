@@ -20,8 +20,8 @@ Beispiel: CC CC 00 17 06 31 CF 32 3C 33 13 1F 1F
 	1F 1F -> Paketende	
 
 
-- Bedeutung der Bytes (ID’s etc.) in den defines Zeilen 25…67
-- Aufbau der Pakete kann auch in den Zeilen 273…321 nachvollzogen werden
+- Bedeutung der Bytes (ID’s etc.) in den defines Zeilen 25…70
+- Aufbau der Pakete kann auch in den Zeilen 277…325 nachvollzogen werden
 - ein Datenbyte des Temperatursensors gibt plain die Temperatur an (nur Konversion hex->dec nötig)
 - Konversion PRS_0: P0 = X *  6,895 bar * 1,25/512 wobei X der Messwert ist (dezimal!)
 - Konversion PRS_1: P1 = X * 17,237 bar * 1,25/256
@@ -37,3 +37,7 @@ Beispiel: CC CC 00 17 06 31 CF 32 3C 33 13 1F 1F
 		- Instruktionen: vgl. defines Zeilen 40…46
 	Beispiele:	Ventil öffnen:	„CC 67 1F“
 			PRS_0 abfragen:	„CC 61 1F“
+
+Troubleshooting:
+	- Wenn die Drucksensoren unplausible Werte ausgeben: vermutlich ist die 5V Versorgung des CubeSat noch nicht eingeschaltet.
+		Das passiert bei SODS automatisch, alternativ ist dies manuell möglich über telecommand: "CC 6B 1F", allerdings nur, sofern SODS, LO, SOE nicht aktiv sind.
