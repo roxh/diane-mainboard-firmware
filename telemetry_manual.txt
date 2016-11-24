@@ -20,12 +20,11 @@ Beispiel: CC CC 00 17 06 31 CF 32 3C 33 13 1F 1F
 	1F 1F -> Paketende	
 
 
-- Bedeutung der Bytes (ID’s etc.) in den defines Zeilen 25…52
-- Aufbau der Pakete kann auch in den Zeilen 257…303 nachvollzogen werden
+- Bedeutung der Bytes (ID’s etc.) in den defines Zeilen 25…67
+- Aufbau der Pakete kann auch in den Zeilen 273…321 nachvollzogen werden
 - ein Datenbyte des Temperatursensors gibt plain die Temperatur an (nur Konversion hex->dec nötig)
 - Konversion PRS_0: P0 = X *  6,895 bar * 1,25/512 wobei X der Messwert ist (dezimal!)
 - Konversion PRS_1: P1 = X * 17,237 bar * 1,25/256
-ACHTUNG: Konversionsformeln für PRS_0/1 ungeprüft! Bitte verifizieren und bei Auffälligkeiten von beiden Drucksensoren Messwerte unter 1 atm an Ulrich schicken.
 
 
 -folgende einzelne Abfragen/Befehle sind möglich:
@@ -35,6 +34,6 @@ ACHTUNG: Konversionsformeln für PRS_0/1 ungeprüft! Bitte verifizieren und bei 
 
 	- Aufbau der Abfragen: „Start-Byte Instruction Stop-Byte“ als Byte-String
 		- Start/Stop-Byte vgl. oben
-		- Instruktionen: vgl. defines Zeilen 37…41
+		- Instruktionen: vgl. defines Zeilen 40…46
 	Beispiele:	Ventil öffnen:	„CC 67 1F“
 			PRS_0 abfragen:	„CC 61 1F“
