@@ -35,6 +35,7 @@
 #define VLV_id      0b00111000  // 0x38 ID for status of Valve_0
 #define PRSS_id     0b00111001  // 0x39 ID for status of Pressure Sampling
 #define CAMS_id     0b00111010  // 0x3A ID for status of Cams (rec/pwr)
+#define P5V_id      0b00111011  // 0x3B ID for status of CubeSat 5V
 #define RXSM_id     0b00110000  // 0x30 ID for RXSM signal reception answer
 
 #define GET_prs0    0b01100001  // 0x61 ID for request of single PRS0 value
@@ -43,6 +44,7 @@
 #define GET_arm     0b01100110  // 0x66 ID for request of arm state
 #define OPN_vlv     0b01100111  // 0x67 ID for command to open Valve_0
 #define CLS_vlv     0b01101000  // 0x68 ID for command to close Valve_0
+#define TON_p5v     0b01101011  // 0x6B ID for command to turn on 5V in CubeSat
 #define REQ_pwr_dwn 0b01101111  // 0x6F ID for power down request
 
 #define PRSS_strt   0b10100001  // 0xA1 ID for Pressure Sampling started
@@ -61,10 +63,12 @@
 #define CAM_off     0b10111111  // 0xAF ID for Cams turned off
 #define ERR_stat    0b10100000  // 0xA0 ID for error status
 
+#define P5V_on      0b11100000  // 0xE0 ID for CubeSat 5V turned on
 #define ARM_success 0b11100110  // 0xE6 ID for successful CubeSat ejection
 #define SODS_ok     0b11101000  // 0xE8 ID for successful SODS reception
 #define LO_ok       0b11101001  // 0xE9 ID for successful LO reception
 #define SOE_ok      0b11101010  // 0xEA ID for successful SOE reception
+
 
 #define SLA_R       0b10010001  // TWI slave address read temperature sensor
 #define PRS0_mux    0b01000001  // ADMUX ADC channel address for PRS0_sensor (0- 3 bar)
@@ -409,6 +413,12 @@ void usart_transmit_cams_turned_on (void)
 void usart_transmit_cams_turned_off (void)
 {
     usart_transmit_single_byte_message (CAMS_id, CAM_off);
+}
+
+// transmit the message of CubeSat 5V turned on
+void usart_transmit_5vcs_turned_on (void)
+{
+    usart_transmit_single_byte_message (P5V_id, P5V_on);
 }
 
 
@@ -802,6 +812,10 @@ ISR (USART_RXC_vect)
             {
                 usart_transmit_valve_0_opened();
             }
+            break;
+        case TON_p5v:
+            turn_on_5V();
+            usart_transmit_5vcs_turned_on();
             break;
         case STOP_byte:
             pending_usart_msg = 0;
