@@ -33,6 +33,8 @@
 #define ARM_id      0b00110110  // 0x36 ID for status of ARM_sensor
 #define RF_id       0b00110111  // 0x37 ID for status of RF-Board
 #define VLV_id      0b00111000  // 0x38 ID for status of Valve_0
+#define PRSS_id     0b00111001  // 0x39 ID for status of Pressure Sampling
+#define CAMS_id     0b00111010  // 0x3A ID for status of Cams (rec/pwr)
 #define RXSM_id     0b00110000  // 0x30 ID for RXSM signal reception answer
 
 #define GET_prs0    0b01100001  // 0x61 ID for request of single PRS0 value
@@ -43,8 +45,8 @@
 #define CLS_vlv     0b01101000  // 0x68 ID for command to close Valve_0
 #define REQ_pwr_dwn 0b01101111  // 0x6F ID for power down request
 
-#define PRSS_strt   0b10100001  // 0xA1 ID for Pressure-Sampling started
-#define PRSS_stop   0b10100010  // 0xA2 ID for Pressure-Sampling stopped
+#define PRSS_strt   0b10100001  // 0xA1 ID for Pressure Sampling started
+#define PRSS_stop   0b10100010  // 0xA2 ID for Pressure Sampling stopped
 #define CAM0_ok     0b10100100  // 0xA4 ID for cam0 status ok
 #define CAM1_ok     0b10100101  // 0xA5 ID for cam1 status ok
 #define ARM_ok      0b10100110  // 0xA6 ID for ARM sensor ok
@@ -340,13 +342,13 @@ void usart_transmit_soe_successful (void)
 // transmit the message of Pressure-Sampling started
 void usart_transmit_prs_sampling_started (void)
 {
-    usart_transmit_single_byte_message (PRS0_id, PRSS_strt);
+    usart_transmit_single_byte_message (PRSS_id, PRSS_strt);
 }
 
 // transmit the message of Pressure-Sampling stopped
 void usart_transmit_prs_sampling_stopped (void)
 {
-    usart_transmit_single_byte_message (PRS0_id, PRSS_stop);
+    usart_transmit_single_byte_message (PRSS_id, PRSS_stop);
 }
 
 // transmit the message of successful CubeSat ejection
@@ -388,25 +390,25 @@ void usart_transmit_rf_stopped (void)
 // transmit the message of started Video-Recording
 void usart_transmit_video_rec_started (void)
 {
-    usart_transmit_single_byte_message (CAM0_id, VR_strt);
+    usart_transmit_single_byte_message (CAMS_id, VR_strt);
 }
 
 // transmit the message of stopped Video-Recording
 void usart_transmit_video_rec_stopped (void)
 {
-    usart_transmit_single_byte_message (CAM0_id, VR_stop);
+    usart_transmit_single_byte_message (CAMS_id, VR_stop);
 }
 
 // transmit the message of Cameras turned on
 void usart_transmit_cams_turned_on (void)
 {
-    usart_transmit_single_byte_message (CAM0_id, CAM_on);
+    usart_transmit_single_byte_message (CAMS_id, CAM_on);
 }
 
 // transmit the message of Cameras turned off
 void usart_transmit_cams_turned_off (void)
 {
-    usart_transmit_single_byte_message (CAM0_id, CAM_off);
+    usart_transmit_single_byte_message (CAMS_id, CAM_off);
 }
 
 
