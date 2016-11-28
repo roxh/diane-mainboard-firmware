@@ -1,9 +1,9 @@
 /*
  *  rexus_mainboard.c
  *
- *  Created on: 02.11.2016
+ *  Created on: 28.11.2016
  *      Author: Ulrich Nordmeyer
- *     Version: v2.2
+ *     Version: v2.3
  *       
  *  Mainboard Firmware for DIANE Experiment on REXUS 21 rocket.
  *  MCU is an ATmega32
@@ -21,10 +21,12 @@
 // this sh*t dont work properly with damn avr-libc
 //#define EEPROM      __attribute__ ((section (".eeprom"))) // fuer EEPROM-Zugriffe
 
+#define firmware_version    23  // firmware version x10, ALWAYS UPDATE BEFORE COMMIT <<<====
 
 #define START_byte  0b11001100  // 0xCC start byte for USART transmission
 #define STOP_byte   0b00011111  // 0x1F stop byte for USART transmission
 
+#define RXSM_id     0b00110000  // 0x30 ID for RXSM signal reception answer
 #define PRS0_id     0b00110001  // 0x31 ID for data of PRS_sensor_0
 #define PRS1_id     0b00110010  // 0x32 ID for data of PRS_sensor_1
 #define TEMP_id     0b00110011  // 0x33 ID for data of TEMP_sensor
@@ -36,7 +38,7 @@
 #define PRSS_id     0b00111001  // 0x39 ID for status of Pressure Sampling
 #define CAMS_id     0b00111010  // 0x3A ID for status of Cams (rec/pwr)
 #define P5V_id      0b00111011  // 0x3B ID for status of CubeSat 5V
-#define RXSM_id     0b00110000  // 0x30 ID for RXSM signal reception answer
+#define FWV_id      0b00111100  // 0x3C ID for Firmware Version
 
 #define GET_prs0    0b01100001  // 0x61 ID for request of single PRS0 value
 #define GET_prs1    0b01100010  // 0x62 ID for request of single PRS1 value
@@ -419,6 +421,12 @@ void usart_transmit_cams_turned_off (void)
 void usart_transmit_5vcs_turned_on (void)
 {
     usart_transmit_single_byte_message (P5V_id, P5V_on);
+}
+
+// transmit the firmware version
+void usart_transmit_firmware_version (void)
+{
+    usart_transmit_single_byte_message (FWV_id, firmware_version);
 }
 
 
@@ -1114,6 +1122,7 @@ int main(void)
 
     sei();
 
+    usart_transmit_firmware_version();
     turn_on_cams();
     usart_transmit_cams_turned_on();
 
