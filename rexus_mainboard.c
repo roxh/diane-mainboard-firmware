@@ -516,6 +516,11 @@ uint8_t sample_prs (uint8_t sensor_id)
     prs_sample_raw |= (ADCH<<8);        // reading high byte
     prs_sample_raw -= 102;              // subtract offset equivalent to 0.5 V
 
+    if(prs_sample_raw > (0xFFFF-102))   // correct underflow around 0 bar / 0.5 V
+    {
+        prs_sample_raw = 0;
+    }
+  
     // conversion to 8-bit value
     switch (sensor_id)
     {
