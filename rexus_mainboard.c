@@ -62,7 +62,7 @@
 #define VR_strt     0b10101100  // 0xAC ID for Video-Recording started
 #define VR_stop     0b10101101  // 0xAD ID for Video-Recording stopped
 #define CAM_on      0b10101110  // 0xAE ID for Cams turned on
-#define CAM_off     0b10111111  // 0xAF ID for Cams turned off
+#define CAM_off     0b10101111  // 0xAF ID for Cams turned off
 #define ERR_stat    0b10100000  // 0xA0 ID for error status
 
 #define P5V_on      0b11100000  // 0xE0 ID for CubeSat 5V turned on
