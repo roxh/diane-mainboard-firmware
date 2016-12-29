@@ -1,9 +1,9 @@
 /*
  *  rexus_mainboard.c
  *
- *  Created on: 28.11.2016
+ *  Created on: 29.12.2016
  *      Author: Ulrich Nordmeyer
- *     Version: v2.3
+ *     Version: v2.4
  *       
  *  Mainboard Firmware for DIANE Experiment on REXUS 21 rocket.
  *  MCU is an ATmega32
@@ -21,7 +21,7 @@
 // this sh*t dont work properly with damn avr-libc
 //#define EEPROM      __attribute__ ((section (".eeprom"))) // fuer EEPROM-Zugriffe
 
-#define firmware_version    23  // firmware version x10, ALWAYS UPDATE BEFORE COMMIT <<<====
+#define firmware_version    24  // firmware version x10, ALWAYS UPDATE BEFORE COMMIT <<<====
 
 #define START_byte  0b11001100  // 0xCC start byte for USART transmission
 #define STOP_byte   0b00011111  // 0x1F stop byte for USART transmission
@@ -62,7 +62,7 @@
 #define VR_strt     0b10101100  // 0xAC ID for Video-Recording started
 #define VR_stop     0b10101101  // 0xAD ID for Video-Recording stopped
 #define CAM_on      0b10101110  // 0xAE ID for Cams turned on
-#define CAM_off     0b10111111  // 0xAF ID for Cams turned off
+#define CAM_off     0b10101111  // 0xAF ID for Cams turned off
 #define ERR_stat    0b10100000  // 0xA0 ID for error status
 
 #define P5V_on      0b11100000  // 0xE0 ID for CubeSat 5V turned on
@@ -220,6 +220,7 @@ uint8_t SODS_debounce_pending = 0;  // boolean reference for debouncing SODS int
 
 uint8_t pending_usart_msg = 0;      // boolean to prevent usart transmissions while message reception
 
+uint8_t cams_turned_on = 0;         // boolean whether or not cams are turned on
 uint8_t cams_recording = 0;         // boolean whether or not cams are recording
 uint8_t cams_shutdown = 0;          // boolean to decide whether or not to shutdown cams after having stopped recording
 uint16_t cams_shutdown_timeref = 0xFFF0;    // timeline reference for 1 s delay between stop recording and shutdown when power-cycle request
@@ -571,6 +572,7 @@ void start_debouncing_timer (void)
 
 void turn_on_cams  (void)
 {
+    cams_turned_on = 1;
     port_cam_0 |=  (1<<CAM_0_control);
     port_cam_1 |=  (1<<CAM_1_control);
     start_cam_timer_on_off();
@@ -618,10 +620,9 @@ void init_pwr_dwn (void)
         usart_transmit_video_rec_stopped();
         // cam shutdown is executed from within stop_recording
     }
-    else
+    else if (cams_turned_on)
     {
         turn_off_cams();
-        usart_transmit_cams_turned_off();
     }
 
     stop_rfb_transm();
@@ -860,10 +861,23 @@ ISR (TIMER0_COMP_vect)
             mom_prs1 = sample_prs(1);           // sample PRS_sensor_1
         }
 
-        // wait for potential incoming message but not longer than <timeout>
-        uint8_t timeout = timeline_counter;
-        while (pending_usart_msg && !(timeline_counter-timeout))
-            ;
+        if (!LO_active && !cams_shutdown)
+        {
+            // wait for potential incoming message to be completed but not longer than 0.167...1.0 s
+            uint8_t timeout = timeline_counter;
+            sei();
+            SREG = tmp_sreg;
+            while (pending_usart_msg)
+            {
+                if (timeline_counter-timeout)
+                {
+                    pending_usart_msg = 0;
+                }
+            }
+            tmp_sreg = SREG;
+            cli();
+        }
+
         usart_transmit_data (mom_prs0, mom_prs1, mom_temp);
 
         // log pressure data with 2 Hz only, poll on ARM-Sensor with 2 Hz if polling enabled
@@ -898,7 +912,6 @@ ISR(TIMER1_COMPA_vect)
     {
         TCCR2 &= 0b11111000;        // stop Timer2
         turn_off_cams();
-        usart_transmit_cams_turned_off();
     }
     switch (timeline_counter)
     {
@@ -985,8 +998,10 @@ ISR(TIMER2_OVF_vect)
         if (cams_shutdown)
         {
             cams_shutdown = 0;
+            usart_transmit_cams_turned_off();
             usart_transmit_single_byte_message (CAM0_id, CAM0_ok);
             usart_transmit_single_byte_message (CAM1_id, CAM1_ok);
+            cams_turned_on = 0;
         }
     }
     sei();
