@@ -20,8 +20,8 @@ Beispiel: CC CC 00 17 06 31 CF 32 3C 33 13 1F 1F
 	1F 1F -> Paketende	
 
 
-- Bedeutung der Bytes (ID’s etc.) in den defines Zeilen 26…72
-- Aufbau der Pakete kann auch in den Zeilen 279…327 nachvollzogen werden
+- Bedeutung der Bytes (ID’s etc.) in den defines Zeilen 27…73
+- Aufbau der Pakete kann auch in den Zeilen 281…329 nachvollzogen werden
 - ein Datenbyte des Temperatursensors gibt plain die Temperatur an (nur Konversion hex->dec nötig)
 - Konversion PRS_0: P0 = X *  6,895 bar * 1,25/512 wobei X der Messwert ist (dezimal!)
 - Konversion PRS_1: P1 = X * 17,237 bar * 1,25/256
@@ -34,7 +34,7 @@ Beispiel: CC CC 00 17 06 31 CF 32 3C 33 13 1F 1F
 
 	- Aufbau der Abfragen: „Start-Byte Instruction Stop-Byte“ als Byte-String
 		- Start/Stop-Byte vgl. oben
-		- Instruktionen: vgl. defines Zeilen 43…50
+		- Instruktionen: vgl. defines Zeilen 44…51
 	Beispiele:	Ventil öffnen:	„CC 67 1F“
 			PRS_0 abfragen:	„CC 61 1F“
 

@@ -2,6 +2,7 @@
 *.o
 *.ko
 *.obj
+*.eep
 *.elf
 
 # Precompiled Headers
@@ -31,3 +32,6 @@
 # Debug files
 *.dSYM/
 *.su
+
+# Hidden files
+.*

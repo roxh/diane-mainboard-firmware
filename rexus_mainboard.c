@@ -1,9 +1,9 @@
 /*
  *  rexus_mainboard.c
  *
- *  Created on: 29.12.2016
+ *  Created on: 03.03.2017
  *      Author: Ulrich Nordmeyer
- *     Version: v2.4
+ *     Version: v2.5
  *       
  *  Mainboard Firmware for DIANE Experiment on REXUS 21 rocket.
  *  MCU is an ATmega32
@@ -17,11 +17,12 @@
 #include <avr/interrupt.h>  // interrupts
 #include <avr/eeprom.h>     // EEPROM access
 #include <util/twi.h>       // TWI
+#include <util/delay.h>     // delay
 
 // this sh*t dont work properly with damn avr-libc
 //#define EEPROM      __attribute__ ((section (".eeprom"))) // fuer EEPROM-Zugriffe
 
-#define firmware_version    24  // firmware version x10, ALWAYS UPDATE BEFORE COMMIT <<<====
+#define firmware_version    25  // firmware version x10, ALWAYS UPDATE BEFORE COMMIT <<<====
 
 #define START_byte  0b11001100  // 0xCC start byte for USART transmission
 #define STOP_byte   0b00011111  // 0x1F stop byte for USART transmission
@@ -84,10 +85,10 @@
 #define T_SOE                   240 // = T+120
 #define T_start_rf_sig_transm   245 // = T+125
 #define T_close_valve           260 // = T+140
-#define T_stop_rf_sig_transm    295 // = T+175
+//#define T_stop_rf_sig_transm    295 // = T+175
 #define T_disable_prs_sampling  299 // = T+179
 #define T_stop_arm_evaluation   305 // = T+185
-#define T_stop_video_recording  325 //700 // = T+580
+#define T_stop_video_recording  370 // = T+250
 
 // defining Timer2 Compare Match purposes
 #define IDLE                    0
@@ -538,7 +539,7 @@ uint8_t sample_prs (uint8_t sensor_id)
 //--------------------------------------------------------------------------------------------------
 
 
-void start_cam_timer_on_off (void)
+/*void start_cam_timer_on_off (void)
 {
     TCCR2 &= ~(1<<WGM21);               // CTC-Mode off
     TIMSK &= ~(1<<OCIE2);               // disable compare match interrupt
@@ -546,7 +547,7 @@ void start_cam_timer_on_off (void)
     timer_2_ref_counter = 0;
     //TCNT2 = 0;
     TCCR2   |= (1<<CS22) | (1<<CS21) | (1<<CS20);   // start Timer2 with clock = F_CPU/1024
-}
+}*/
 
 void start_cam_timer_rec (void)
 {
@@ -570,7 +571,7 @@ void start_debouncing_timer (void)
     TCCR2   |= (1<<CS22) | (1<<CS21) | (1<<CS20);   // start Timer2 with clock = F_CPU/1024
 }
 
-void turn_on_cams  (void)
+/*void turn_on_cams  (void)
 {
     cams_turned_on = 1;
     port_cam_0 |=  (1<<CAM_0_control);
@@ -582,7 +583,7 @@ void turn_off_cams (void)
     port_cam_0 |=  (1<<CAM_0_control);
     port_cam_1 |=  (1<<CAM_1_control);
     start_cam_timer_on_off();
-}
+}*/
 
 void start_rec_cams (void)
 {
@@ -613,16 +614,12 @@ void start_timeline_counter (void)
 
 void init_pwr_dwn (void)
 {
-    cams_shutdown = 1;
+    //cams_shutdown = 1;
     if (cams_recording)
     {
         stop_rec_cams();
         usart_transmit_video_rec_stopped();
         // cam shutdown is executed from within stop_recording
-    }
-    else if (cams_turned_on)
-    {
-        turn_off_cams();
     }
 
     stop_rfb_transm();
@@ -894,6 +891,7 @@ ISR (TIMER0_COMP_vect)
                 {
                     cubesat_ejected = 1;
                     stop_arm_polling();
+                    usart_transmit_ejection_successful();
                 }   
             }
         }
@@ -908,11 +906,11 @@ ISR(TIMER1_COMPA_vect)
     tmp_sreg = SREG;
     cli();
     timeline_counter++;
-    if (cams_shutdown && (cams_shutdown_timeref == timeline_counter))
+    /*if (cams_shutdown && (cams_shutdown_timeref == timeline_counter))
     {
         TCCR2 &= 0b11111000;        // stop Timer2
         turn_off_cams();
-    }
+    }*/
     switch (timeline_counter)
     {
         case T_start_data_logging:
@@ -934,13 +932,11 @@ turn_off_led_3();
 turn_on_led_2();
             break;
 
-        case T_stop_rf_sig_transm:
+        case T_disable_prs_sampling:
             stop_rfb_transm();
             usart_transmit_rf_stopped();
 turn_on_led_3();
-            break;
 
-        case T_disable_prs_sampling:
             disable_prs_sampling();
             usart_transmit_prs_sampling_stopped();
             stop_data_eeprom_logging();
@@ -955,11 +951,7 @@ turn_on_led_1();
 
         case T_stop_arm_evaluation:
             stop_arm_polling();
-            if (cubesat_ejected)
-            {
-                usart_transmit_ejection_successful();
-            }
-            else
+            if (!cubesat_ejected)
             {
                 usart_transmit_ejection_failed();
             }
@@ -972,8 +964,6 @@ turn_on_led_0();
             break;
 
         case T_stop_video_recording+10:
-            turn_off_cams();
-            usart_transmit_cams_turned_off();
 turn_off_led_0();
 turn_off_led_1();
 turn_off_led_2();
@@ -985,12 +975,12 @@ turn_off_led_3();
 }
 
 // ISR for Timer2 pulling cam_control lines low after >= 5 s
-ISR(TIMER2_OVF_vect)
+/*ISR(TIMER2_OVF_vect)
 {
     tmp_sreg = SREG;
     cli();
     timer_2_ref_counter++;
-    if (timer_2_ref_counter > 300)
+    if (timer_2_ref_counter > 400)
     {
         port_cam_0 &= ~(1<<CAM_0_control);
         port_cam_1 &= ~(1<<CAM_1_control);
@@ -1006,7 +996,7 @@ ISR(TIMER2_OVF_vect)
     }
     sei();
     SREG = tmp_sreg;
-}
+}*/
 
 // ISR for Timer2 pulling cam_control lines low after >= 100 ms
 ISR(TIMER2_COMP_vect)
@@ -1143,9 +1133,7 @@ int main(void)
     sei();
 
     usart_transmit_firmware_version();
-    turn_on_cams();
-    usart_transmit_cams_turned_on();
-
+    
     turn_on_led_0();
     turn_on_led_1();
     turn_on_led_2();

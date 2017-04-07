@@ -3,6 +3,7 @@ avrdude -p m32 -c STK500 -B 22 -P /dev/tty.usbmodem1421 -U lfuse:w:0x9f:m -U hfu
 ggf. mit ls /dev/tty* nach dem Adapter suchen und unter -P eintragen
 
 
-read eeprom:
+read/write eeprom:
 
 avrdude -p m32 -c STK500 -B 22 -P /dev/tty.usbmodem1421 -U eeprom:r:measured_data.eep:i -v
+avrdude -p m32 -c STK500 -B 22 -P /dev/tty.usbmodem1421 -U eeprom:w:rexus_mainboard.eep -v
