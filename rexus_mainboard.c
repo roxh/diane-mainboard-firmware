@@ -19,8 +19,6 @@
 #include <util/twi.h>       // TWI
 #include <util/delay.h>     // delay
 
-// this sh*t dont work properly with damn avr-libc
-//#define EEPROM      __attribute__ ((section (".eeprom"))) // fuer EEPROM-Zugriffe
 
 #define firmware_version    25  // firmware version x10, ALWAYS UPDATE BEFORE COMMIT <<<====
 
